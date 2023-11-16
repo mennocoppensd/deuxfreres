@@ -5,6 +5,8 @@ import {
   type NextAuthOptions,
 } from "next-auth";
 
+import CredentialsProvider from "next-auth/providers/credentials";
+
 import { db } from "~/server/db";
 
 /**
@@ -35,26 +37,37 @@ declare module "next-auth" {
  */
 export const authOptions: NextAuthOptions = {
   callbacks: {
-    session: ({ session, user }) => ({
+    session: ({ session, token }) => ({
       ...session,
       user: {
         ...session.user,
-        id: user.id,
+        id: token.id,
       },
     }),
+    jwt: ({ token, account, user }) => {
+      if (account) {
+        token.id = user.id;
+        token.accessToken=account.accessToken;
+      }
+      return token;
+    }
   },
-  adapter: PrismaAdapter(db),
+  session: {
+    strategy: "jwt",
+  },
   providers: [
-
-    /**
-     * ...add more providers here.
-     *
-     * Most other providers require a bit more work than the Discord provider. For example, the
-     * GitHub provider requires you to add the `refresh_token_expires_in` field to the Account
-     * model. Refer to the NextAuth.js docs for the provider you want to use. Example:
-     *
-     * @see https://next-auth.js.org/providers/github
-     */
+    CredentialsProvider({
+      credentials: {
+        password: { label: "Password", type: "password" },
+      },
+      authorize: (credentials) => {
+        if (credentials?.password !== process.env.ADMIN_PASSWORD) {
+          throw new Error("Fucker, Incorrect password jong");
+          
+        }
+        return { id: "1", name: "Admin", email: "menno.coppens@telenet.be"}
+      },
+    }),
   ],
 };
 
